@@ -94,6 +94,15 @@ public class OrderService {
 
         Order savedOrder = orderRepository.save(order);
 
+        PaymentMethod method = PaymentMethod.valueOf(request.getPaymentMethod().toUpperCase());
+        order.setPaymentMethod(method);
+
+        if (method == PaymentMethod.COD) {
+            order.setPaymentStatus(PaymentStatus.SUCCESS);
+        } else {
+            order.setPaymentStatus(PaymentStatus.PENDING);
+        }
+
         return mapToResponse(savedOrder);
     }
 
@@ -107,7 +116,8 @@ public class OrderService {
         response.setShippedAt(order.getShippedAt());
         response.setDeliveredAt(order.getDeliveredAt());
         response.setCancelledAt(order.getCancelledAt());
-
+        response.setPaymentMethod(order.getPaymentMethod().name());
+        response.setPaymentStatus(order.getPaymentStatus().name());
         List<OrderItemResponseDTO> itemDTOs = new ArrayList<>();
 
         for (OrderItem item : order.getItems()) {
@@ -210,5 +220,31 @@ public class OrderService {
         Order updatedOrder = orderRepository.save(order);
 
         return mapToResponse(updatedOrder);
+    }
+
+    @Transactional
+    public OrderResponseDTO processPayment(Long id) {
+
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+
+        if (order.getPaymentMethod() == PaymentMethod.COD) {
+            throw new BadRequestException("COD orders do not require payment");
+        }
+
+        if (order.getPaymentStatus() == PaymentStatus.SUCCESS) {
+            throw new BadRequestException("Payment already completed");
+        }
+
+        // 🔥 MOCK LOGIC (random success/failure)
+        boolean success = Math.random() > 0.3;
+
+        if (success) {
+            order.setPaymentStatus(PaymentStatus.SUCCESS);
+        } else {
+            order.setPaymentStatus(PaymentStatus.FAILED);
+        }
+
+        return mapToResponse(orderRepository.save(order));
     }
 }

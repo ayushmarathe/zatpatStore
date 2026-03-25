@@ -52,4 +52,9 @@ public class OrderController {
     public ResponseEntity<OrderResponseDTO> cancelOrder(@PathVariable Long id) {
         return ResponseEntity.ok(orderService.cancelOrder(id));
     }
+
+    @PostMapping("/{id}/pay")
+    public ResponseEntity<OrderResponseDTO> payOrder(@PathVariable Long id) {
+        return ResponseEntity.ok(orderService.processPayment(id));
+    }
 }

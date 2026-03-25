@@ -13,6 +13,13 @@ public class OrderResponseDTO {
     private LocalDateTime shippedAt;
     private LocalDateTime deliveredAt;
     private LocalDateTime cancelledAt;
+    private String paymentMethod;
+    private String paymentStatus;
+
+
+    public OrderResponseDTO() {
+        this.paymentStatus = paymentStatus;
+    }
 
     public Long getOrderId() {
         return orderId;
@@ -64,5 +71,21 @@ public class OrderResponseDTO {
 
     public void setItems(List<OrderItemResponseDTO> items) {
         this.items = items;
+    }
+
+    public String getPaymentStatus() {
+        return paymentStatus;
+    }
+
+    public void setPaymentStatus(String paymentStatus) {
+        this.paymentStatus = paymentStatus;
+    }
+
+    public String getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(String paymentMethod) {
+        this.paymentMethod = paymentMethod;
     }
 }
