@@ -19,6 +19,8 @@ import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 public class OrderService {
@@ -43,12 +45,29 @@ public class OrderService {
         List<OrderItem> orderItems = new ArrayList<>();
         double totalAmount = 0.0;
 
-        for (OrderItemRequestDTO itemDTO : request.getItems()) {
+        Map<Long, Integer> productQuantityMap = new HashMap<>();
 
-            Product product = productRepository.findById(itemDTO.getProductId())
+        for (OrderItemRequestDTO item : request.getItems()) {
+
+            if (productQuantityMap.containsKey(item.getProductId())) {
+                productQuantityMap.put(
+                        item.getProductId(),
+                        productQuantityMap.get(item.getProductId()) + item.getQuantity()
+                );
+            } else {
+                productQuantityMap.put(item.getProductId(), item.getQuantity());
+            }
+        }
+
+        for (Map.Entry<Long, Integer> entry : productQuantityMap.entrySet()) {
+
+            Long productId = entry.getKey();
+            Integer quantity = entry.getValue();
+
+            Product product = productRepository.findById(productId)
                     .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
 
-            if (itemDTO.getQuantity() > product.getQuantity()) {
+            if (quantity > product.getQuantity()) {
                 throw new BadRequestException("Insufficient stock for product: " + product.getName());
             }
 
@@ -56,14 +75,14 @@ public class OrderService {
             item.setProductId(product.getId());
             item.setProductName(product.getName());
             item.setPrice(product.getPrice());
-            item.setQuantity(itemDTO.getQuantity());
+            item.setQuantity(quantity);
 
-            double subtotal = product.getPrice() * itemDTO.getQuantity();
+            double subtotal = product.getPrice() * quantity;
             item.setSubtotal(subtotal);
 
             totalAmount += subtotal;
 
-            product.setQuantity(product.getQuantity() - itemDTO.getQuantity());
+            product.setQuantity(product.getQuantity() - quantity);
             productRepository.save(product);
 
             item.setOrder(order);
@@ -85,6 +104,9 @@ public class OrderService {
         response.setTotalAmount(order.getTotalAmount());
         response.setStatus(order.getStatus().name());
         response.setCreatedAt(order.getCreatedAt());
+        response.setShippedAt(order.getShippedAt());
+        response.setDeliveredAt(order.getDeliveredAt());
+        response.setCancelledAt(order.getCancelledAt());
 
         List<OrderItemResponseDTO> itemDTOs = new ArrayList<>();
 
@@ -134,6 +156,7 @@ public class OrderService {
         }
 
         order.setStatus(OrderStatus.SHIPPED);
+        order.setShippedAt(LocalDateTime.now());
 
         return mapToResponse(orderRepository.save(order));
     }
@@ -148,6 +171,7 @@ public class OrderService {
         }
 
         order.setStatus(OrderStatus.DELIVERED);
+        order.setDeliveredAt(LocalDateTime.now());
 
         return mapToResponse(orderRepository.save(order));
     }
@@ -181,6 +205,7 @@ public class OrderService {
 
         // ✅ Update status
         order.setStatus(OrderStatus.CANCELLED);
+        order.setCancelledAt(LocalDateTime.now());
 
         Order updatedOrder = orderRepository.save(order);
 

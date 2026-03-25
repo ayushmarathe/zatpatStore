@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -18,7 +19,9 @@ public class OrderController {
     private OrderService orderService;
 
     @PostMapping
-    public ResponseEntity<OrderResponseDTO> placeOrder(@RequestBody OrderRequestDTO request) {
+    public ResponseEntity<OrderResponseDTO> placeOrder(
+            @Valid @RequestBody OrderRequestDTO request) {
+
         return ResponseEntity.ok(orderService.placeOrder(request));
     }
 

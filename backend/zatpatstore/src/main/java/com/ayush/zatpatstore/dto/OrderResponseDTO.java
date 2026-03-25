@@ -10,6 +10,9 @@ public class OrderResponseDTO {
     private String status;
     private LocalDateTime createdAt;
     private List<OrderItemResponseDTO> items;
+    private LocalDateTime shippedAt;
+    private LocalDateTime deliveredAt;
+    private LocalDateTime cancelledAt;
 
     public Long getOrderId() {
         return orderId;
@@ -45,6 +48,18 @@ public class OrderResponseDTO {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public void setShippedAt(LocalDateTime shippedAt) {
+        this.shippedAt = shippedAt;
+    }
+
+    public void setDeliveredAt(LocalDateTime deliveredAt) {
+        this.deliveredAt = deliveredAt;
+    }
+
+    public void setCancelledAt(LocalDateTime cancelledAt) {
+        this.cancelledAt = cancelledAt;
     }
 
     public void setItems(List<OrderItemResponseDTO> items) {
