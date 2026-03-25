@@ -16,6 +16,10 @@ public class Product {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @ManyToOne
+    @JoinColumn(name = "category_id")
+    private Category category;
+
     @Column(nullable = false)
     @NotBlank(message = "Name is required")
     private String name;
@@ -34,4 +38,5 @@ public class Product {
 
     @Column(name = "image_url")
     private String imageUrl;
+
 }

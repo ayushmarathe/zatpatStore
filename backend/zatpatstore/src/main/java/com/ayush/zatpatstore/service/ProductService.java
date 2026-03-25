@@ -2,22 +2,29 @@ package com.ayush.zatpatstore.service;
 
 import com.ayush.zatpatstore.dto.ProductDTO;
 import com.ayush.zatpatstore.exception.ResourceNotFoundException;
+import com.ayush.zatpatstore.model.Category;
 import com.ayush.zatpatstore.model.Product;
+import com.ayush.zatpatstore.repository.CategoryRepository;
 import com.ayush.zatpatstore.repository.ProductRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-
+import org.springframework.data.domain.Sort;
 import java.util.List;
+import org.springframework.data.jpa.domain.Specification;
 
 @Service
 public class ProductService {
 
     private final ProductRepository productRepository;
 
-    public ProductService(ProductRepository productRepository) {
+    private final CategoryRepository categoryRepository;
+
+    public ProductService(ProductRepository productRepository,
+                          CategoryRepository categoryRepository) {
         this.productRepository = productRepository;
+        this.categoryRepository = categoryRepository;
     }
 
     // Create Product
@@ -70,6 +77,63 @@ public class ProductService {
         productRepository.delete(existing);
     }
 
+    public List<ProductDTO> createProductsBulk(List<ProductDTO> dtoList) {
+
+        List<Product> products = dtoList.stream()
+                .map(this::mapToEntity)
+                .toList();
+
+        List<Product> savedProducts = productRepository.saveAll(products);
+
+        return savedProducts.stream()
+                .map(this::mapToDTO)
+                .toList();
+    }
+
+    public Page<ProductDTO> searchProducts(
+            String name,
+            Double minPrice,
+            Double maxPrice,
+            int page,
+            int size,
+            String sortBy,
+            String sortDir) {
+
+        Sort sort = sortDir.equalsIgnoreCase("desc") ?
+                Sort.by(sortBy).descending() :
+                Sort.by(sortBy).ascending();
+
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Specification<Product> spec = (root, query, cb) -> {
+
+            var predicates = cb.conjunction();
+
+            if (name != null && !name.isEmpty()) {
+                predicates = cb.and(predicates,
+                        cb.like(cb.lower(root.get("name")),
+                                "%" + name.toLowerCase() + "%"));
+            }
+
+            if (minPrice != null) {
+                predicates = cb.and(predicates,
+                        cb.greaterThanOrEqualTo(root.get("price"), minPrice));
+            }
+
+            if (maxPrice != null) {
+                predicates = cb.and(predicates,
+                        cb.lessThanOrEqualTo(root.get("price"), maxPrice));
+            }
+
+            return predicates;
+        };
+
+        Page<Product> productPage =
+                productRepository.findAll(spec, pageable);
+
+        return productPage.map(this::mapToDTO);
+    }
+
     private ProductDTO mapToDTO(Product product) {
         return ProductDTO.builder()
                 .id(product.getId())
@@ -78,10 +142,21 @@ public class ProductService {
                 .price(product.getPrice())
                 .quantity(product.getQuantity())
                 .imageUrl(product.getImageUrl())
+                .categoryId(product.getCategory() != null ? product.getCategory().getId() : null)
+                .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
                 .build();
     }
 
     private Product mapToEntity(ProductDTO dto) {
+
+        Category category = null;
+
+        if (dto.getCategoryId() != null) {
+            category = categoryRepository.findById(dto.getCategoryId())
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException("Category not found"));
+        }
+
         return Product.builder()
                 .id(dto.getId())
                 .name(dto.getName())
@@ -89,6 +164,7 @@ public class ProductService {
                 .price(dto.getPrice())
                 .quantity(dto.getQuantity())
                 .imageUrl(dto.getImageUrl())
+                .category(category)   // ✅ IMPORTANT
                 .build();
     }
 }
