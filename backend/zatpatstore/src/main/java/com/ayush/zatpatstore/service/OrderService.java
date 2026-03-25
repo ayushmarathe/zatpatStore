@@ -2,6 +2,7 @@ package com.ayush.zatpatstore.service;
 
 import com.ayush.zatpatstore.exception.BadRequestException;
 import com.ayush.zatpatstore.exception.OrderStateException;
+import com.ayush.zatpatstore.repository.UserRepository;
 import org.springframework.transaction.annotation.Transactional;
 import com.ayush.zatpatstore.dto.*;
 import com.ayush.zatpatstore.model.*;
@@ -21,6 +22,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.HashMap;
 import java.util.Map;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 @Service
 public class OrderService {
@@ -31,6 +33,9 @@ public class OrderService {
     @Autowired
     private OrderRepository orderRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
     @Transactional
     public OrderResponseDTO placeOrder(OrderRequestDTO request) {
 
@@ -39,6 +44,14 @@ public class OrderService {
         }
 
         Order order = new Order();
+
+        String username = getCurrentUsername();
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        order.setUser(user);
+
         order.setCreatedAt(LocalDateTime.now());
         order.setStatus(OrderStatus.PLACED);
 
@@ -137,11 +150,13 @@ public class OrderService {
     }
     public List<OrderResponseDTO> getAllOrders(int page, int size) {
 
-        Page<Order> orderPage = orderRepository.findAll(PageRequest.of(page, size));
+        String username = getCurrentUsername();
+
+        List<Order> orders = orderRepository.findByUserUsername(username);
 
         List<OrderResponseDTO> responseList = new ArrayList<>();
 
-        for (Order order : orderPage.getContent()) {
+        for (Order order : orders) {
             responseList.add(mapToResponse(order));
         }
 
@@ -150,8 +165,14 @@ public class OrderService {
 
     public OrderResponseDTO getOrderById(Long id) {
 
+        String username = getCurrentUsername();
+
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+
+        if (!order.getUser().getUsername().equals(username)) {
+            throw new RuntimeException("Access denied");
+        }
 
         return mapToResponse(order);
     }
@@ -247,4 +268,10 @@ public class OrderService {
 
         return mapToResponse(orderRepository.save(order));
     }
+
+    private String getCurrentUsername() {
+        return SecurityContextHolder.getContext().getAuthentication().getName();
+    }
+
+
 }

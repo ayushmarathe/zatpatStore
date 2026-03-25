@@ -6,9 +6,15 @@ import java.util.List;
 import com.ayush.zatpatstore.model.PaymentMethod;
 import com.ayush.zatpatstore.model.PaymentStatus;
 import com.ayush.zatpatstore.model.OrderStatus;
+import com.ayush.zatpatstore.model.User;
+
 @Entity
 @Table(name = "orders")
 public class Order {
+
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    private User user;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -18,6 +24,8 @@ public class Order {
 
     @Enumerated(EnumType.STRING)
     private OrderStatus status;
+
+
 
     private LocalDateTime createdAt;
     private LocalDateTime shippedAt;
@@ -113,5 +121,13 @@ public class Order {
 
     public void setPaymentStatus(PaymentStatus paymentStatus) {
         this.paymentStatus = paymentStatus;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
     }
 }
