@@ -269,6 +269,16 @@ public class OrderService {
         return mapToResponse(orderRepository.save(order));
     }
 
+    public OrderResponseDTO updateOrderStatus(Long id, String status) {
+
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        order.setStatus(OrderStatus.valueOf(status.toUpperCase()));
+
+        return mapToResponse(orderRepository.save(order));
+    }
+
     private String getCurrentUsername() {
         return SecurityContextHolder.getContext().getAuthentication().getName();
     }

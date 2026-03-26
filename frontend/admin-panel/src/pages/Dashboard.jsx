@@ -10,6 +10,9 @@ function Dashboard() {
           Manage Products
         </button>
       </Link>
+      <Link to="/orders">
+        <button>Manage Orders</button>
+      </Link>
     </div>
   );
 }

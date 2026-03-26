@@ -57,4 +57,12 @@ public class OrderController {
     public ResponseEntity<OrderResponseDTO> payOrder(@PathVariable Long id) {
         return ResponseEntity.ok(orderService.processPayment(id));
     }
+
+    @PutMapping("/{id}/status")
+    public OrderResponseDTO updateStatus(
+            @PathVariable Long id,
+            @RequestParam String status) {
+
+        return orderService.updateOrderStatus(id, status);
+    }
 }
