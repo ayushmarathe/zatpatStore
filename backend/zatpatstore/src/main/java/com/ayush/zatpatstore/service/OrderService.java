@@ -279,9 +279,36 @@ public class OrderService {
         return mapToResponse(orderRepository.save(order));
     }
 
+    public Map<String, Object> getDashboardStats() {
+
+        List<Order> orders = orderRepository.findAll();
+
+        double totalRevenue = 0;
+        int totalOrders = orders.size();
+
+        for (Order order : orders) {
+            if (order.getStatus() == OrderStatus.DELIVERED) {
+                totalRevenue += order.getTotalAmount();
+            }
+        }
+
+        long totalProducts = productRepository.count();
+
+        long lowStock = productRepository.findAll()
+                .stream()
+                .filter(p -> p.getQuantity() < 10)
+                .count();
+
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("totalOrders", totalOrders);
+        stats.put("totalRevenue", totalRevenue);
+        stats.put("totalProducts", totalProducts);
+        stats.put("lowStockProducts", lowStock);
+
+        return stats;
+    }
+
     private String getCurrentUsername() {
         return SecurityContextHolder.getContext().getAuthentication().getName();
     }
-
-
 }

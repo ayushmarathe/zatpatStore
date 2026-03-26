@@ -1,9 +1,13 @@
 package com.ayush.zatpatstore.controller;
 
 import com.ayush.zatpatstore.dto.ProductDTO;
+import com.ayush.zatpatstore.model.Product;
 import com.ayush.zatpatstore.service.FileStorageService;
 import com.ayush.zatpatstore.service.ProductService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -146,5 +150,11 @@ public class ProductController {
         }
 
         return productService.updateProductWithImage(id, dto);
+    }
+    @GetMapping("/low-stock")
+    public List<ProductDTO> getLowStockProducts(
+            @RequestParam(defaultValue = "10") int threshold) {
+
+        return productService.getLowStockProducts(threshold);
     }
 }

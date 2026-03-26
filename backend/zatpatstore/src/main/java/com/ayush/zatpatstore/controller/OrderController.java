@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import jakarta.validation.Valid;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -64,5 +65,10 @@ public class OrderController {
             @RequestParam String status) {
 
         return orderService.updateOrderStatus(id, status);
+    }
+
+    @GetMapping("/stats")
+    public Map<String, Object> getStats() {
+        return orderService.getDashboardStats();
     }
 }

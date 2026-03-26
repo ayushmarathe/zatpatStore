@@ -232,4 +232,12 @@
             return mapToDTO(productRepository.save(existing));
         }
 
+        public List<ProductDTO> getLowStockProducts(int threshold) {
+
+            List<Product> products = productRepository.findByQuantityLessThan(threshold);
+
+            return products.stream()
+                    .map(this::mapToDTO)
+                    .toList();
+        }
     }
