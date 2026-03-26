@@ -1,5 +1,6 @@
 package com.ayush.zatpatstore.config;
 
+import com.ayush.zatpatstore.model.User;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 
@@ -14,12 +15,13 @@ public class JwtUtil {
     private final String SECRET = "mysecretkeymysecretkeymysecretkey"; // min 32 chars
     private final Key key = Keys.hmacShaKeyFor(SECRET.getBytes());
 
-    public String generateToken(String username) {
+    public String generateToken(User user) {
 
         return Jwts.builder()
-                .setSubject(username)
+                .setSubject(user.getUsername())
+                .claim("role", user.getRole()) // 🔥 ADD THIS
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60)) // 1 hour
+                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60))
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }

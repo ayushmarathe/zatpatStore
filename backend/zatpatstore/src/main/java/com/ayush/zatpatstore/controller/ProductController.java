@@ -71,19 +71,17 @@ public class ProductController {
 
     @GetMapping("/search")
     public Page<ProductDTO> searchProducts(
-
             @RequestParam(required = false) String name,
             @RequestParam(required = false) Double minPrice,
             @RequestParam(required = false) Double maxPrice,
-
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-
+            @RequestParam(required = false) Long categoryId, // 🔥 ADD THIS
+            @RequestParam int page,
+            @RequestParam int size,
             @RequestParam(defaultValue = "id") String sortBy,
-            @RequestParam(defaultValue = "asc") String sortDir
-    ) {
+            @RequestParam(defaultValue = "asc") String sortDir) {
+
         return productService.searchProducts(
-                name, minPrice, maxPrice, page, size, sortBy, sortDir);
+                name, minPrice, maxPrice, categoryId, page, size, sortBy, sortDir);
     }
 
     @PostMapping("/upload")
@@ -114,5 +112,39 @@ public class ProductController {
 
         return productService.createProduct(dto);
     }
+    @PutMapping("/{id}/increase")
+    public ProductDTO increaseStock(@PathVariable Long id, @RequestParam int amount) {
+        return productService.increaseStock(id, amount);
+    }
 
+    @PutMapping("/{id}/decrease")
+    public ProductDTO decreaseStock(@PathVariable Long id, @RequestParam int amount) {
+        return productService.decreaseStock(id, amount);
+    }
+
+    @PutMapping("/with-image/{id}")
+    public ProductDTO updateProductWithImage(
+            @PathVariable Long id,
+            @RequestParam(required = false) MultipartFile file,
+            @RequestParam String name,
+            @RequestParam String description,
+            @RequestParam Double price,
+            @RequestParam Integer quantity,
+            @RequestParam Long categoryId
+    ) {
+
+        ProductDTO dto = new ProductDTO();
+        dto.setName(name);
+        dto.setDescription(description);
+        dto.setPrice(price);
+        dto.setQuantity(quantity);
+        dto.setCategoryId(categoryId);
+
+        if (file != null && !file.isEmpty()) {
+            String fileName = fileStorageService.saveFile(file);
+            dto.setImageUrl(fileName);
+        }
+
+        return productService.updateProductWithImage(id, dto);
+    }
 }
