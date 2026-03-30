@@ -1,141 +1,154 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import api from "../api/axios";
-import { useNavigate, useLocation } from "react-router-dom"; // 🔥 Added useLocation
-import Navbar from "../components/Navbar";
+import { useNavigate, useLocation } from "react-router-dom";
 
 function Products() {
-    const location = useLocation(); // 🔥 To catch Dashboard state
-    const [isLowStockFilter, setIsLowStockFilter] = useState(location.state?.filterLowStock || false);
-    
-    const [products, setProducts] = useState([]);
-    const [categories, setCategories] = useState([]);
-    const [selectedCategory, setSelectedCategory] = useState("");
-    const [page, setPage] = useState(0);
-    const [totalPages, setTotalPages] = useState(0); 
+    const location = useLocation();
     const navigate = useNavigate();
 
+    const [products, setProducts] = useState([]);
+    const [categories, setCategories] = useState([]);
+    
+    // 🔍 Search & Filter States
+    const [searchQuery, setSearchQuery] = useState(""); // 🔥 New Search State
+    const [filterTab, setFilterTab] = useState(location.state?.filterLowStock ? "LOW" : "ALL");
+    const [selectedCategory, setSelectedCategory] = useState("");
+    const [minPrice, setMinPrice] = useState("");
+    const [maxPrice, setMaxPrice] = useState("");
+    const [minQty, setMinQty] = useState("");
+    const [maxQty, setMaxQty] = useState("");
+
+    // 🔥 Navigation Guard
     useEffect(() => {
         window.history.pushState(null, null, window.location.pathname);
         const handlePopState = () => {
-            if (window.confirm("Return to Dashboard?")) {
-                navigate("/dashboard");
-            } else {
-                window.history.pushState(null, null, window.location.pathname);
-            }
+            if (window.confirm("Return to Dashboard?")) navigate("/dashboard");
+            else window.history.pushState(null, null, window.location.pathname);
         };
         window.addEventListener('popstate', handlePopState);
         return () => window.removeEventListener('popstate', handlePopState);
     }, [navigate]);
 
-    const fetchCategories = async () => {
+    const fetchData = async () => {
         try {
-            const res = await api.get("/api/categories");
-            setCategories(res.data);
-        } catch (err) { console.error(err); }
+            const [prodRes, catRes] = await Promise.all([
+                api.get("/api/products?page=0&size=1000"), 
+                api.get("/api/categories")
+            ]);
+            const prodData = prodRes.data.content || prodRes.data;
+            setProducts(prodData);
+            setCategories(catRes.data);
+        } catch (err) { console.error("Error fetching data:", err); }
     };
 
-    const fetchProducts = async () => {
-        try {
-            let url = `/api/products?page=${page}&size=12`; 
+    useEffect(() => { fetchData(); }, []);
 
-            // 🔥 Logic for Low Stock Endpoint
-            if (isLowStockFilter) {
-                url = `/api/products/low-stock?threshold=10`;
-            } else if (selectedCategory !== "") {
-                url = `/api/products/search?categoryId=${selectedCategory}&page=${page}&size=12`;
-            }
+    // 🔍 Smart Filter Logic (Including ID and Name)
+    const filteredProducts = useMemo(() => {
+        return products.filter(p => {
+            // Smart Search Logic
+            const searchLower = searchQuery.toLowerCase().trim();
+            const matchesSearch = !searchQuery || 
+                p.name.toLowerCase().includes(searchLower) || 
+                p.id.toString() === searchLower; // Exact match for ID, partial for Name
 
-            const res = await api.get(url);
+            const matchesTab = filterTab === "ALL" || (filterTab === "LOW" && p.quantity < 10);
+            const matchesCat = !selectedCategory || p.categoryId === Number(selectedCategory);
+            const matchesPrice = (!minPrice || p.price >= parseFloat(minPrice)) && 
+                                (!maxPrice || p.price <= parseFloat(maxPrice));
+            const matchesQty = (!minQty || p.quantity >= parseInt(minQty)) && 
+                               (!maxQty || p.quantity <= parseInt(maxQty));
             
-            // 🔥 Logic to handle both Page object and simple Array (Low Stock)
-            if (res.data.content) {
-                setProducts(res.data.content);
-                setTotalPages(res.data.totalPages);
-            } else {
-                // For low-stock List return
-                setProducts(res.data);
-                setTotalPages(1); 
-            }
-        } catch (err) { console.error(err); }
-    };
+            return matchesSearch && matchesTab && matchesCat && matchesPrice && matchesQty;
+        });
+    }, [products, searchQuery, filterTab, selectedCategory, minPrice, maxPrice, minQty, maxQty]);
 
-    const handleClearFilter = () => {
-        setIsLowStockFilter(false);
-        setPage(0);
-    };
+    const stats = useMemo(() => ({
+        total: products.length,
+        lowStock: products.filter(p => p.quantity < 10).length
+    }), [products]);
 
-    useEffect(() => { fetchCategories(); }, []);
-    useEffect(() => { fetchProducts(); }, [page, selectedCategory, isLowStockFilter]);
-
-    const renderPageNumbers = () => {
-        const pages = [];
-        for (let i = 0; i < totalPages; i++) {
-            pages.push(
-                <button
-                    key={i}
-                    onClick={() => setPage(i)}
-                    style={page === i ? styles.activePageBtn : styles.pageNumberBtn}
-                >
-                    {i + 1}
-                </button>
-            );
-        }
-        return pages;
+    const resetFilters = () => {
+        setSearchQuery(""); setSelectedCategory(""); setMinPrice(""); setMaxPrice(""); setMinQty(""); setMaxQty(""); setFilterTab("ALL");
     };
 
     const handleDelete = async (id) => {
-        const password = prompt("Enter admin password to delete:");
-        if (password !== "admin123") return;
-        try { await api.delete(`/api/products/${id}`); fetchProducts(); } catch (err) { console.error(err); }
+        if (prompt("Enter admin password to delete:") !== "admin123") return;
+        try { await api.delete(`/api/products/${id}`); fetchData(); } catch (err) { console.error(err); }
     };
 
-    const increaseStock = async (id) => {
-        const amount = prompt("Enter amount:");
-        if (!amount) return;
-        try { await api.put(`/api/products/${id}/increase?amount=${amount}`); fetchProducts(); } catch (err) { console.error(err); }
-    };
-
-    const decreaseStock = async (id) => {
-        const amount = prompt("Enter amount:");
-        if (!amount) return;
-        try { await api.put(`/api/products/${id}/decrease?amount=${amount}`); fetchProducts(); } catch (err) { console.error(err); }
+    const adjustStock = async (id, type) => {
+        const amt = prompt(`Enter amount to ${type}:`);
+        if (!amt) return;
+        try { await api.put(`/api/products/${id}/${type}?amount=${amt}`); fetchData(); } catch (err) { console.error(err); }
     };
 
     return (
         <div style={styles.container}>
             <button onClick={() => navigate("/dashboard")} style={styles.closeCross}>&times;</button>
 
-            <header style={styles.header}>
+            <header style={styles.headerSection}>
                 <div>
-                    <h2 style={styles.heading}>Product Inventory</h2>
-                    <p style={styles.subHeading}>Directly manage stock levels and categories.</p>
+                    <h2 style={styles.heading}>📦 Product Inventory</h2>
+                    <p style={styles.subHeading}>Control stock levels and product visibility</p>
                 </div>
-                <button onClick={() => navigate("/add-product")} style={styles.addBtn}>+ Add Product</button>
+                
+                <div style={styles.statsRow}>
+                    <div style={styles.statItem}><span style={styles.statVal}>{stats.total}</span> Total</div>
+                    <div style={styles.statItem}><span style={{...styles.statVal, color: '#ef4444'}}>{stats.lowStock}</span> Low Stock</div>
+                    <button onClick={() => navigate("/add-product")} style={styles.addBtn}>+ Add Product</button>
+                </div>
             </header>
 
-            {/* 🔥 ADDED LOW STOCK BANNER */}
-            {isLowStockFilter && (
-                <div style={styles.alertBanner}>
-                    <span>⚠️ Showing items with <strong>Qty &lt; 10</strong></span>
-                    <button onClick={handleClearFilter} style={styles.clearBtn}>View All Products</button>
-                </div>
-            )}
+            {/* 🔍 Smart Search Bar */}
+            <div style={styles.searchSection}>
+                <input 
+                    type="text" 
+                    placeholder="Search by ID or Product Name..." 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    style={styles.searchBar}
+                />
+            </div>
 
-            <div style={styles.filterSection}>
-                <p style={styles.filterLabel}>Category Filter</p>
-                <select
-                    value={selectedCategory}
-                    disabled={isLowStockFilter} // 🔥 Disable during low-stock mode
-                    onChange={(e) => { setSelectedCategory(e.target.value ? Number(e.target.value) : ""); setPage(0); }}
-                    style={{...styles.select, opacity: isLowStockFilter ? 0.5 : 1}}
-                >
-                    <option value="">All Categories</option>
-                    {categories.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
-                </select>
+            <div style={styles.tabBar}>
+                {["ALL", "LOW"].map(tab => (
+                    <button key={tab} onClick={() => setFilterTab(tab)} style={filterTab === tab ? styles.activeTab : styles.tab}>
+                        {tab === "LOW" ? "⚠️ Low Stock" : "All Products"}
+                    </button>
+                ))}
+            </div>
+
+            <div style={styles.filterBar}>
+                <div style={styles.filterGroup}>
+                    <label style={styles.filterLabel}>Category</label>
+                    <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} style={styles.miniInput}>
+                        <option value="">All Categories</option>
+                        {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                </div>
+
+                <div style={styles.filterGroup}>
+                    <label style={styles.filterLabel}>Price (₹)</label>
+                    <div style={styles.inputRow}>
+                        <input type="number" placeholder="Min" value={minPrice} onChange={e => setMinPrice(e.target.value)} style={styles.miniInput} />
+                        <input type="number" placeholder="Max" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} style={styles.miniInput} />
+                    </div>
+                </div>
+
+                <div style={styles.filterGroup}>
+                    <label style={styles.filterLabel}>Quantity</label>
+                    <div style={styles.inputRow}>
+                        <input type="number" placeholder="Min" value={minQty} onChange={e => setMinQty(e.target.value)} style={styles.miniInput} />
+                        <input type="number" placeholder="Max" value={maxQty} onChange={e => setMaxQty(e.target.value)} style={styles.miniInput} />
+                    </div>
+                </div>
+
+                <button onClick={resetFilters} style={styles.resetBtn}>Reset</button>
             </div>
 
             <div style={styles.grid}>
-                {products.map((p) => (
+                {filteredProducts.map((p) => (
                     <div key={p.id} style={styles.productCard}>
                         <div style={styles.imageContainer}>
                             <img src={`http://localhost:8080/uploads/${p.imageUrl}`} alt={p.name} style={styles.image} />
@@ -150,8 +163,8 @@ function Products() {
                                 </span>
                             </div>
                             <div style={styles.actionGrid}>
-                                <button style={styles.stockBtnIn} onClick={() => increaseStock(p.id)}>+</button>
-                                <button style={styles.stockBtnDe} onClick={() => decreaseStock(p.id)}>-</button>
+                                <button style={styles.stockBtnIn} onClick={() => adjustStock(p.id, "increase")}>+</button>
+                                <button style={styles.stockBtnDe} onClick={() => adjustStock(p.id, "decrease")}>-</button>
                                 <button style={styles.editBtn} onClick={() => navigate(`/edit-product/${p.id}`)}>Edit</button>
                                 <button style={styles.deleteBtn} onClick={() => handleDelete(p.id)}>Delete</button>
                             </div>
@@ -160,57 +173,52 @@ function Products() {
                 ))}
             </div>
 
-            <footer style={styles.pagination}>
-                <button onClick={() => setPage(page - 1)} disabled={page === 0} style={page === 0 ? styles.pageBtnDisabled : styles.pageBtn}>
-                    Prev
-                </button>
-                <div style={styles.pageNumberContainer}>
-                    {renderPageNumbers()}
-                </div>
-                <button onClick={() => setPage(page + 1)} disabled={page === totalPages - 1 || isLowStockFilter} style={(page === totalPages - 1 || isLowStockFilter) ? styles.pageBtnDisabled : styles.pageBtn}>
-                    Next
-                </button>
-            </footer>
+            {filteredProducts.length === 0 && (
+                <div style={styles.emptyContainer}>No products found matching "{searchQuery}"</div>
+            )}
         </div>
     );
 }
 
 const styles = {
-    // Existing styles kept exactly as is
     container: { position: "relative", padding: "60px 5% 40px", background: "#0f172a", minHeight: "100vh", color: "#f8fafc", fontFamily: "'Inter', sans-serif" },
     closeCross: { position: "fixed", top: "20px", right: "30px", background: "#1e293b", border: "1px solid #334155", color: "#94a3b8", fontSize: "32px", width: "45px", height: "45px", borderRadius: "50%", cursor: "pointer", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" },
-    header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "40px" },
-    heading: { fontSize: "30px", fontWeight: "800", background: "linear-gradient(90deg, #6366f1, #a855f7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" },
-    subHeading: { color: "#94a3b8", fontSize: "14px" },
-    addBtn: { background: "#6366f1", color: "#fff", padding: "12px 24px", borderRadius: "12px", border: "none", fontWeight: "700", cursor: "pointer" },
-    filterSection: { marginBottom: "30px" },
-    filterLabel: { fontSize: "11px", fontWeight: "700", color: "#6366f1", textTransform: "uppercase", marginBottom: "8px" },
-    select: { padding: "12px", borderRadius: "10px", background: "#1e293b", border: "1px solid #334155", color: "#fff", width: "220px" },
-    grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "25px" },
+    headerSection: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "30px" },
+    heading: { fontSize: "28px", fontWeight: "800", margin: 0, background: "linear-gradient(90deg, #6366f1, #a855f7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" },
+    subHeading: { color: "#64748b", fontSize: "14px" },
+    statsRow: { display: "flex", gap: "15px", alignItems: "center" },
+    statItem: { background: "#1e293b", padding: "8px 15px", borderRadius: "10px", border: "1px solid #334155", fontSize: "12px", color: "#94a3b8" },
+    statVal: { color: "#fff", fontWeight: "800", fontSize: "15px", marginRight: "4px" },
+    addBtn: { background: "#6366f1", color: "#fff", padding: "10px 20px", borderRadius: "10px", border: "none", fontWeight: "700", cursor: "pointer" },
+    
+    searchSection: { marginBottom: "20px" },
+    searchBar: { width: "100%", padding: "15px 20px", borderRadius: "15px", background: "#1e293b", border: "1px solid #334155", color: "#fff", fontSize: "16px", outline: "none" },
+    
+    tabBar: { display: "flex", gap: "10px", marginBottom: "20px" },
+    tab: { background: "transparent", border: "none", color: "#64748b", cursor: "pointer", fontWeight: "600", padding: "8px 16px" },
+    activeTab: { background: "#6366f1", border: "none", color: "#fff", cursor: "pointer", fontWeight: "600", padding: "8px 16px", borderRadius: "8px" },
+    filterBar: { display: "flex", flexWrap: "wrap", gap: "20px", background: "#1e293b", padding: "20px", borderRadius: "15px", marginBottom: "30px", alignItems: "flex-end", border: "1px solid #334155" },
+    filterGroup: { display: "flex", flexDirection: "column", gap: "6px" },
+    filterLabel: { fontSize: "10px", fontWeight: "700", color: "#6366f1", textTransform: "uppercase" },
+    inputRow: { display: "flex", gap: "10px" },
+    miniInput: { background: "#0f172a", border: "1px solid #334155", color: "#fff", padding: "8px 12px", borderRadius: "8px", fontSize: "13px", outline: "none", width: "130px" },
+    resetBtn: { background: "rgba(239, 68, 68, 0.1)", color: "#ef4444", border: "1px solid #ef4444", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: "600", fontSize: "12px" },
+    grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "25px" },
     productCard: { background: "#1e293b", borderRadius: "18px", overflow: "hidden", border: "1px solid #334155" },
     imageContainer: { position: "relative", height: "200px", background: "#0f172a" },
     image: { width: "100%", height: "100%", objectFit: "cover" },
     idBadge: { position: "absolute", top: "12px", left: "12px", background: "rgba(15,23,42,0.8)", padding: "4px 8px", borderRadius: "6px", fontSize: "11px", color: "#fff" },
     cardBody: { padding: "20px" },
-    productName: { fontSize: "18px", fontWeight: "700", marginBottom: "10px" },
+    productName: { fontSize: "17px", fontWeight: "700", color: "#fff", margin: "0 0 10px 0" },
     priceRow: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" },
-    price: { fontSize: "20px", fontWeight: "800", color: "#22c55e" },
-    stockLabel: { fontSize: "13px" },
+    price: { fontSize: "19px", fontWeight: "800", color: "#22c55e" },
+    stockLabel: { fontSize: "13px", fontWeight: "600" },
     actionGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" },
-    stockBtnIn: { background: "#10b981", color: "#fff", border: "none", borderRadius: "8px", padding: "10px", cursor: "pointer" },
-    stockBtnDe: { background: "#f59e0b", color: "#fff", border: "none", borderRadius: "8px", padding: "10px", cursor: "pointer" },
-    editBtn: { background: "#3b82f6", color: "#fff", border: "none", borderRadius: "8px", padding: "10px", cursor: "pointer" },
-    deleteBtn: { background: "#ef4444", color: "#fff", border: "none", borderRadius: "8px", padding: "10px", cursor: "pointer" },
-    pagination: { marginTop: "50px", display: "flex", justifyContent: "center", gap: "15px", alignItems: "center" },
-    pageBtn: { background: "#1e293b", color: "#fff", padding: "8px 16px", borderRadius: "8px", border: "1px solid #334155", cursor: "pointer", fontWeight: "600" },
-    pageBtnDisabled: { background: "#0f172a", color: "#475569", padding: "8px 16px", borderRadius: "8px", border: "1px solid #1e293b", cursor: "not-allowed" },
-    pageNumberContainer: { display: "flex", gap: "8px" },
-    pageNumberBtn: { background: "transparent", color: "#94a3b8", border: "1px solid #334155", padding: "8px 14px", borderRadius: "8px", cursor: "pointer", transition: "0.2s" },
-    activePageBtn: { background: "#6366f1", color: "#fff", border: "1px solid #6366f1", padding: "8px 14px", borderRadius: "8px", fontWeight: "700", cursor: "default" },
-    
-    // 🔥 New Alert Banner Styles
-    alertBanner: { background: "#f59e0b", color: "#fff", padding: "12px 25px", borderRadius: "12px", marginBottom: "30px", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 4px 15px rgba(245, 158, 11, 0.2)" },
-    clearBtn: { background: "#fff", color: "#f59e0b", border: "none", padding: "6px 12px", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", fontSize: "13px" }
+    stockBtnIn: { background: "#10b981", color: "#fff", border: "none", borderRadius: "8px", padding: "10px", cursor: "pointer", fontWeight: "800" },
+    stockBtnDe: { background: "#f59e0b", color: "#fff", border: "none", borderRadius: "8px", padding: "10px", cursor: "pointer", fontWeight: "800" },
+    editBtn: { background: "#3b82f6", color: "#fff", border: "none", borderRadius: "8px", padding: "10px", cursor: "pointer", fontWeight: "600" },
+    deleteBtn: { background: "#ef4444", color: "#fff", border: "none", borderRadius: "8px", padding: "10px", cursor: "pointer", fontWeight: "600" },
+    emptyContainer: { textAlign: "center", padding: "100px", color: "#475569", fontSize: "18px" },
 };
 
 export default Products;

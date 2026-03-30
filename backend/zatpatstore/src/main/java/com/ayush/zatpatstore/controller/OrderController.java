@@ -2,6 +2,7 @@ package com.ayush.zatpatstore.controller;
 
 import com.ayush.zatpatstore.dto.OrderRequestDTO;
 import com.ayush.zatpatstore.dto.OrderResponseDTO;
+import com.ayush.zatpatstore.dto.UserResponseDTO;
 import com.ayush.zatpatstore.service.OrderService;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -70,5 +71,15 @@ public class OrderController {
     @GetMapping("/stats")
     public Map<String, Object> getStats() {
         return orderService.getDashboardStats();
+    }
+
+    @GetMapping("/users/stats")
+    public ResponseEntity<List<UserResponseDTO>> getUserStats() {
+        return ResponseEntity.ok(orderService.getUserStats());
+    }
+
+    @GetMapping("/users/{username}")
+    public List<OrderResponseDTO> getOrdersByUser(@PathVariable String username) {
+        return orderService.getOrdersByUsername(username);
     }
 }

@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.*;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -306,6 +307,53 @@ public class OrderService {
         stats.put("lowStockProducts", lowStock);
 
         return stats;
+    }
+
+    public List<UserResponseDTO> getUserStats() {
+
+        List<User> users = userRepository.findAll();
+        List<UserResponseDTO> result = new ArrayList<>();
+
+        for (User user : users) {
+
+            List<Order> userOrders = orderRepository.findByUserUsername(user.getUsername());
+
+            UserResponseDTO dto = new UserResponseDTO();
+            dto.setId(user.getId());
+            dto.setUsername(user.getUsername());
+            dto.setRole(user.getRole());
+
+            int totalOrders = userOrders.size();
+
+            double totalSpent = userOrders.stream()
+                    .mapToDouble(Order::getTotalAmount)
+                    .sum();
+
+            LocalDateTime lastOrder = userOrders.stream()
+                    .map(Order::getCreatedAt)
+                    .max(LocalDateTime::compareTo)
+                    .orElse(null);
+
+            dto.setLastOrderDate(lastOrder);
+
+
+
+            dto.setTotalOrders(totalOrders);
+            dto.setTotalSpent(totalSpent);
+
+            result.add(dto);
+        }
+
+        return result;
+    }
+
+    public List<OrderResponseDTO> getOrdersByUsername(String username) {
+
+        List<Order> orders = orderRepository.findByUserUsername(username);
+
+        return orders.stream()
+                .map(this::mapToResponse)
+                .toList();
     }
 
     private String getCurrentUsername() {
