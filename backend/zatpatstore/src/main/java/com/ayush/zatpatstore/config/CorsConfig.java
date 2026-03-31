@@ -18,7 +18,8 @@ public class CorsConfig {
         config.setAllowCredentials(true);
 
         config.setAllowedOrigins(List.of(
-                "http://localhost:3000", // 🔥 ADD THIS
+                "http://localhost:3000",
+                "http://localhost:3001",
                 "http://zatpat-admin.s3-website-us-east-1.amazonaws.com"
         ));
 

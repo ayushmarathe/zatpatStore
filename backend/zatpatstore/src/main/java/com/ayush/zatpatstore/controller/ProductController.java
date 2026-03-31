@@ -78,9 +78,9 @@ public class ProductController {
             @RequestParam(required = false) String name,
             @RequestParam(required = false) Double minPrice,
             @RequestParam(required = false) Double maxPrice,
-            @RequestParam(required = false) Long categoryId, // 🔥 ADD THIS
-            @RequestParam int page,
-            @RequestParam int size,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(defaultValue = "0") int page, // ✅ FIXED: Added default
+            @RequestParam(defaultValue = "10") int size, // ✅ FIXED: Added default
             @RequestParam(defaultValue = "id") String sortBy,
             @RequestParam(defaultValue = "asc") String sortDir) {
 

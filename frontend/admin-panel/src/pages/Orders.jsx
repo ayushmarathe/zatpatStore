@@ -40,7 +40,18 @@ function Orders() {
     }
   };
 
-  useEffect(() => { fetchOrders(); }, []);
+  useEffect(() => {
+    // Initial fetch
+    fetchOrders();
+
+    // Set interval to fetch every 3 seconds
+    const interval = setInterval(() => {
+      fetchOrders();
+    }, 3000);
+
+    // Clean up interval on component unmount
+    return () => clearInterval(interval);
+  }, []);
 
   const updateStatus = async (id, status) => {
     try {
@@ -114,7 +125,7 @@ function Orders() {
       </header>
 
       <div style={styles.tabBar}>
-        {["ALL", "LIVE", "COMPLETED", "CANCELLED"].map(status => (
+        {["LIVE", "COMPLETED", "ALL", "CANCELLED"].map(status => (
           <button
             key={status}
             onClick={() => setFilterStatus(status)}
@@ -129,12 +140,12 @@ function Orders() {
         {/* 🔥 NEW: SEARCH BY ORDER ID */}
         <div style={styles.filterGroup}>
           <label style={styles.filterLabel}>Search Order</label>
-          <input 
-            type="text" 
-            placeholder="Type Order ID..." 
-            value={searchId} 
-            onChange={e => setSearchId(e.target.value)} 
-            style={styles.searchIdInput} 
+          <input
+            type="text"
+            placeholder="Type Order ID..."
+            value={searchId}
+            onChange={e => setSearchId(e.target.value)}
+            style={styles.searchIdInput}
           />
         </div>
 
@@ -248,27 +259,45 @@ const styles = {
   tabBar: { display: "flex", gap: "10px", marginBottom: "20px" },
   tab: { background: "transparent", border: "none", color: "#64748b", cursor: "pointer", fontWeight: "600", padding: "8px 16px" },
   activeTab: { background: "#6366f1", border: "none", color: "#fff", cursor: "pointer", fontWeight: "600", padding: "8px 16px", borderRadius: "8px" },
-  
+
   filterBar: { display: "flex", flexWrap: "wrap", gap: "20px", background: "#1e293b", padding: "20px", borderRadius: "15px", marginBottom: "30px", alignItems: "flex-end", border: "1px solid #334155" },
   filterGroup: { display: "flex", flexDirection: "column", gap: "6px" },
   filterLabel: { fontSize: "10px", fontWeight: "700", color: "#6366f1", textTransform: "uppercase" },
-  
+
   // 🔥 STYLE FOR SEARCH INPUT
   searchIdInput: { background: "#0f172a", border: "1px solid #6366f1", color: "#fff", padding: "8px 12px", borderRadius: "8px", fontSize: "13px", outline: "none", width: "160px" },
-  
+
   inputRow: { display: "flex", gap: "10px" },
   miniInput: { background: "#0f172a", border: "1px solid #334155", color: "#fff", padding: "8px 12px", borderRadius: "8px", fontSize: "13px", outline: "none", width: "135px" },
   resetBtn: { background: "rgba(239, 68, 68, 0.1)", color: "#ef4444", border: "1px solid #ef4444", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: "600", fontSize: "12px" },
-  
+
   orderGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))", gap: "25px" },
-  card: { background: "#1e293b", borderRadius: "20px", padding: "24px", border: "1px solid #334155" },
+  card: {
+    background: "#1e293b",
+    borderRadius: "20px",
+    padding: "24px",
+    border: "1px solid #334155",
+    display: "flex",           // 🔥 Added to force footer to bottom
+    flexDirection: "column",   // 🔥 Added
+    justifyContent: "space-between", // 🔥 Keeps header at top, footer at bottom
+    minHeight: "450px"         // 🔥 Forces all cards to be at least this tall
+  },
   cardHeader: { display: "flex", justifyContent: "space-between", marginBottom: "20px", borderBottom: "1px solid #334155", paddingBottom: "12px" },
   orderId: { fontWeight: "700", color: "#fff" },
   infoSection: { display: "flex", justifyContent: "space-between", marginBottom: "20px" },
   label: { display: "block", fontSize: "10px", color: "#64748b", textTransform: "uppercase", marginBottom: "4px" },
   totalText: { fontSize: "20px", fontWeight: "800", color: "#fff" },
   paymentText: { fontSize: "13px", fontWeight: "600" },
-  itemsBox: { background: "#0f172a", padding: "12px", borderRadius: "14px", marginBottom: "20px" },
+  itemsBox: {
+    background: "#0f172a",
+    padding: "12px",
+    borderRadius: "14px",
+    marginBottom: "20px",
+    height: "180px",           // 🔥 FIXED HEIGHT: Adjust this to your liking
+    overflowY: "auto",         // 🔥 Allows scrolling for big orders
+    scrollbarWidth: "none",    // 🔥 Hides scrollbar for Firefox
+    msOverflowStyle: "none",   // 🔥 Hides scrollbar for IE/Edge
+  },
   itemRow: { display: "flex", alignItems: "center", gap: "12px", padding: "8px 0", borderBottom: "1px solid #1e293b" },
   itemImage: { width: "40px", height: "40px", objectFit: "cover", borderRadius: "6px" },
   itemName: { fontSize: "13px", fontWeight: "600", color: "#f8fafc" },

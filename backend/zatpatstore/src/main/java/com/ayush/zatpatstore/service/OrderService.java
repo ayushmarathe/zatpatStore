@@ -112,9 +112,9 @@ public class OrderService {
         order.setPaymentMethod(method);
 
         if (method == PaymentMethod.COD) {
-            order.setPaymentStatus(PaymentStatus.SUCCESS);
-        } else {
             order.setPaymentStatus(PaymentStatus.PENDING);
+        } else {
+            order.setPaymentStatus(PaymentStatus.SUCCESS);
         }
 
         return mapToResponse(savedOrder);
@@ -150,28 +150,42 @@ public class OrderService {
         return response;
     }
     public List<OrderResponseDTO> getAllOrders(int page, int size) {
-
+        // 1. Get current user details
         String username = getCurrentUsername();
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        List<Order> orders = orderRepository.findByUserUsername(username);
+        // 2. Check if the user is an Admin
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
 
-        List<OrderResponseDTO> responseList = new ArrayList<>();
+        List<Order> orders;
 
-        for (Order order : orders) {
-            responseList.add(mapToResponse(order));
+        if (isAdmin) {
+            // 🔥 ADMIN: Fetch absolutely everything
+            orders = orderRepository.findAll();
+        } else {
+            // 🔒 USER: Fetch only their own orders
+            orders = orderRepository.findByUserUsername(username);
         }
 
-        return responseList;
+        // 3. Map to DTOs
+        return orders.stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
     }
 
     public OrderResponseDTO getOrderById(Long id) {
-
         String username = getCurrentUsername();
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
 
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
 
-        if (!order.getUser().getUsername().equals(username)) {
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+        // 🔥 Allow access if user is Admin OR if they own the order
+        if (!isAdmin && !order.getUser().getUsername().equals(username)) {
             throw new RuntimeException("Access denied");
         }
 
