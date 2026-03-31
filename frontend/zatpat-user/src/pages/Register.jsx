@@ -3,14 +3,15 @@ import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
 
 function Register() {
-
     const [form, setForm] = useState({
         username: "",
-        password: ""
+        password: "",
+        fullName: "", // 🔥 New
+        email: "",    // 🔥 New
+        dob: ""       // 🔥 New
     });
 
     const [loading, setLoading] = useState(false);
-
     const navigate = useNavigate();
 
     const handleChange = (e) => {
@@ -21,8 +22,8 @@ function Register() {
     };
 
     const handleRegister = async () => {
-
-        if (!form.username || !form.password) {
+        // Updated validation
+        if (!form.username || !form.password || !form.fullName || !form.email || !form.dob) {
             alert("Please fill all fields");
             return;
         }
@@ -30,18 +31,22 @@ function Register() {
         try {
             setLoading(true);
 
+            // 🔥 Sending the full profile data to the backend
             await api.post("/api/auth/register", {
                 username: form.username,
                 password: form.password,
+                fullName: form.fullName,
+                email: form.email,
+                dob: form.dob,
                 role: "USER"
             });
 
-            alert("Registration successful");
+            alert("Registration successful! Please login.");
             navigate("/");
 
         } catch (err) {
             console.error(err);
-            alert("Registration failed (username may exist)");
+            alert("Registration failed (Username/Email may already exist)");
         } finally {
             setLoading(false);
         }
@@ -49,13 +54,40 @@ function Register() {
 
     return (
         <div style={styles.container}>
-
             <div style={styles.card}>
                 <h2 style={styles.heading}>Create Account</h2>
 
                 <input
+                    name="fullName"
+                    placeholder="Full Name"
+                    value={form.fullName}
+                    onChange={handleChange}
+                    style={styles.input}
+                />
+
+                <input
+                    name="email"
+                    type="email"
+                    placeholder="Email Address"
+                    value={form.email}
+                    onChange={handleChange}
+                    style={styles.input}
+                />
+
+                <input
+                    name="dob"
+                    type="date"
+                    value={form.dob}
+                    onChange={handleChange}
+                    style={styles.input}
+                    title="Date of Birth"
+                />
+
+                <div style={styles.divider} />
+
+                <input
                     name="username"
-                    placeholder="Username"
+                    placeholder="Choose Username"
                     value={form.username}
                     onChange={handleChange}
                     style={styles.input}
@@ -64,7 +96,7 @@ function Register() {
                 <input
                     name="password"
                     type="password"
-                    placeholder="Password"
+                    placeholder="Set Password"
                     value={form.password}
                     onChange={handleChange}
                     style={styles.input}
@@ -78,7 +110,7 @@ function Register() {
                         opacity: loading ? 0.6 : 1
                     }}
                 >
-                    {loading ? "Registering..." : "Register"}
+                    {loading ? "Creating Account..." : "Register"}
                 </button>
 
                 <p style={styles.footerText}>
@@ -91,60 +123,72 @@ function Register() {
                     </span>
                 </p>
             </div>
-
         </div>
     );
 }
 
 const styles = {
     container: {
-        height: "100vh",
+        minHeight: "100vh",
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        background: "#0f172a"
+        background: "#020617", // Darker Zatpat background
+        padding: "20px"
     },
     card: {
         background: "#1e293b",
         padding: "30px",
-        borderRadius: "12px",
-        width: "320px",
+        borderRadius: "20px",
+        width: "350px",
         display: "flex",
         flexDirection: "column",
-        gap: "15px",
-        border: "1px solid #334155"
+        gap: "12px",
+        border: "1px solid #334155",
+        boxShadow: "0 20px 40px rgba(0,0,0,0.4)"
     },
     heading: {
         color: "#fff",
         textAlign: "center",
-        marginBottom: "10px"
+        marginBottom: "10px",
+        fontSize: "24px",
+        fontWeight: "800"
     },
     input: {
         padding: "12px",
-        borderRadius: "8px",
+        borderRadius: "10px",
         border: "1px solid #334155",
         background: "#0f172a",
         color: "#fff",
-        outline: "none"
+        outline: "none",
+        fontSize: "14px"
+    },
+    divider: {
+        height: "1px",
+        background: "#334155",
+        margin: "10px 0"
     },
     button: {
-        padding: "12px",
-        background: "#6366f1",
+        padding: "14px",
+        background: "#6366f1", // Zatpat Blue
         color: "#fff",
         border: "none",
-        borderRadius: "8px",
+        borderRadius: "12px",
         cursor: "pointer",
-        fontWeight: "600"
+        fontWeight: "700",
+        marginTop: "10px",
+        fontSize: "16px"
     },
     footerText: {
-        fontSize: "12px",
+        fontSize: "13px",
         color: "#94a3b8",
-        textAlign: "center"
+        textAlign: "center",
+        marginTop: "10px"
     },
     link: {
         color: "#6366f1",
         cursor: "pointer",
-        fontWeight: "600"
+        fontWeight: "700"
     }
 };
 

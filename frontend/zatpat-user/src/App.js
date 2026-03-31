@@ -8,7 +8,7 @@ import Cart from "./pages/Cart";
 import Orders from "./pages/Orders";
 import OrderDetails from "./pages/OrderDetails";
 import ProductDetails from "./pages/ProductDetails";
-
+import Profile from "./pages/Profile";
 
 
 // 🔐 Protected Route
@@ -78,6 +78,7 @@ function App() {
 
                 <Route path="/product/:id" element={<ProductDetails />} />
                 <Route path="/orders/:id" element={<OrderDetails />} />
+                <Route path="/profile" element={<Profile />} />
             </Routes>
 
         </BrowserRouter>

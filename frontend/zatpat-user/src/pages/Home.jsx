@@ -61,14 +61,24 @@ function Home() {
     const [isSearchFocused, setIsSearchFocused] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false); 
-    const [isChangingAvatar, setIsChangingAvatar] = useState(false); // 🔥 New State
-    const [userAvatar, setUserAvatar] = useState(localStorage.getItem("userAvatar") || "👤"); // 🔥 New State
+    const [isChangingAvatar, setIsChangingAvatar] = useState(false); 
+    const [userAvatar, setUserAvatar] = useState(localStorage.getItem("userAvatar") || "👤"); 
     const [activeOrder, setActiveOrder] = useState(null); 
     const itemsPerPage = 8; 
 
     const username = localStorage.getItem("username") || "User";
 
     useEffect(() => {
+        // 🔥 1. SYNC PROFILE FROM DATABASE ON LOAD
+        api.get("/api/profile/me")
+            .then(res => {
+                if (res.data && res.data.avatar) {
+                    setUserAvatar(res.data.avatar);
+                    localStorage.setItem("userAvatar", res.data.avatar);
+                }
+            })
+            .catch(() => console.log("No profile found yet, using defaults."));
+
         api.get("/api/products?page=0&size=10").then(res => setTopProducts(res.data.content)).catch(() => {});
         api.get("/api/categories").then(res => setCategories(res.data)).catch(() => {});
         
@@ -98,16 +108,30 @@ function Home() {
     const handleLogout = () => {
         const confirmLogout = window.confirm("Are you sure you want to logout?");
         if (confirmLogout) {
-            localStorage.clear();
+            // 🔥 SMART LOGOUT: Keep the avatar preference, remove the session
+            localStorage.removeItem("username");
+            localStorage.removeItem("token");
+            localStorage.removeItem("cart"); 
             setIsSidebarOpen(false);
             navigate("/");
         }
     };
 
-    const selectAvatar = (icon) => {
-        setUserAvatar(icon);
-        localStorage.setItem("userAvatar", icon);
-        setIsChangingAvatar(false);
+    const selectAvatar = async (icon) => {
+        try {
+            // 🔥 2. SAVE TO DATABASE
+            await api.put("/api/profile/avatar", { avatar: icon });
+            
+            // 3. Update local state
+            setUserAvatar(icon);
+            localStorage.setItem("userAvatar", icon);
+            setIsChangingAvatar(false);
+        } catch (err) {
+            console.error("Failed to sync avatar to cloud", err);
+            // Fallback for offline/error
+            setUserAvatar(icon);
+            setIsChangingAvatar(false);
+        }
     };
 
     const filteredProducts = products.filter(p => 
